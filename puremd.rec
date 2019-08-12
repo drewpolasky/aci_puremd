@@ -1,0 +1,62 @@
+BootStrap: docker
+From: ubuntu:16.04
+
+%setup
+
+%files
+
+%environment
+PATH="$PATH:/usr/lib64/openmpi/bin/"
+LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib64/openmpi/lib/"
+MPI_ROOT=/usr/lib64/openmpi/
+export PATH
+export LD_LIBRARY_PATH
+export MPI_ROOT
+export automake=/usr/bin/automake-1.15
+
+%runscript
+exec mpirun "$1" /opt/PuReMD/PuReMD/bin/puremd "${@:2}"
+
+%post
+    apt-get update -y && apt-get upgrade -y 
+	apt install -y build-essential
+	apt-get install -y git cmake gcc gfortran binutils \
+	  patch \
+	  g++ bzip2 ca-certificates \
+	  libglib2.0-0 libxext6 libsm6 libxrender1 \
+	  mercurial subversion \
+	  libcanberra-gtk* \
+	  autoconf wget sed libtool \
+
+# Install OpenMPI 2.1.6
+    cd /tmp/
+    wget https://download.open-mpi.org/release/open-mpi/v2.1/openmpi-2.1.6.tar.gz
+    tar -xf openmpi-2.1.6.tar.gz
+    cd openmpi-2.1.6
+    #source /opt/rh/devtoolset-8/enable
+    ./configure --prefix=/usr/lib64/openmpi/bin/
+    make
+    make install
+    cd ..
+    rm -rf openmpi-2.1.6*
+    PATH="$PATH:/usr/lib64/openmpi/bin/"
+    LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib64/openmpi/lib/"
+    MPI_ROOT=/usr/lib64/openmpi/
+    export PATH
+    export LD_LIBRARY_PATH
+    export MPI_ROOT
+
+    mkdir -p /storage/home
+    mkdir -p /storage/work
+    mkdir -p /gpfs/scratch
+    mkdir -p /gpfs/group
+    mkdir -p /var/spool/torque
+
+    cd /opt
+    git clone https://gitlab.msu.edu/SParTA/PuReMD.git
+    cd PuReMD
+    git submodule init
+    git submodule update
+    autoreconf -ivf
+    ./configure --enable-openmp=no --enable-mpi-old=yes
+    make CFLAGS="-O3" 
